@@ -3,6 +3,4 @@ def size_to_scale(size):
     while size >= 1024:
         scale += 0.2
         size /= 2.0
-
-    print scale
     return scale

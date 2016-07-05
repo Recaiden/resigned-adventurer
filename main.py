@@ -144,12 +144,20 @@ def addDir(models, render, position, path='.'):
 
     # Add representations of each file.
     lencross = lengthRoom/5
+    posFile = position + (-1*lengthRoom+2, -1*widthRoom+2, 0)
+    LETTER_SIZE = 0.035
     for i in range(len(files)):
+        posNFile = posFile + (i%lencross*5,i/lencross*5,0)
         nfile = files[i]
         s = os.path.getsize(nfile)
         scl = utils.size_to_scale(s)
-        addCube(models, render, position + (-1*lengthRoom+2, -1*widthRoom+2, 0) +
-                (i%lencross*5,i/lencross*5,0), scl)
+        addCube(models, render,  posNFile, scl)
+        text = TextNode("filename: %s"%nfile)
+        text.setText(nfile)
+        textNodePath = render.attachNewNode(text)
+        textNodePath.setPos(posNFile + (-1*len(nfile)*LETTER_SIZE, 0, scl*1.2))
+        textNodePath.setScale(0.15)
+        textNodePath.setTwoSided(True)
         
         
 class RoamingRalphDemo(ShowBase):
