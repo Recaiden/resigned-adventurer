@@ -41,6 +41,12 @@ import math
 import models
 import utils
 
+
+camMax = 2.0
+camMin = 0.0
+camHeight = 1.0
+
+        
 # Function to put instructions on the screen.
 def addInstructions(pos, msg):
     return OnscreenText(text=msg, style=1, fg=(1, 1, 1, 1), scale=.05,
@@ -128,9 +134,11 @@ def addDir(models, render, position, path='.'):
         else:
             files.append(item)
 
-    lengthRoom = min(10, len(dirChild)*5)
-    widthRoom = min(10, len(files)/(lengthRoom/5)*5)
-    print lengthRoom, widthRoom
+    lengthRoom = max(10, len(dirChild)*5)
+    widthRoom = max(10, (len(files)*5)/(lengthRoom/5))
+    print lengthRoom, widthRoom, len(files)
+    lengthRoom/=1.5
+    widthRoom/=1.5
 
     # Put up walls
     addWall(models, render, position + (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
@@ -143,7 +151,7 @@ def addDir(models, render, position, path='.'):
     # Build doors to child directories
 
     # Add representations of each file.
-    lencross = lengthRoom/5
+    lencross = widthRoom/5
     posFile = position + (-1*lengthRoom+2, -1*widthRoom+2, 0)
     LETTER_SIZE = 0.035
     for i in range(len(files)):
@@ -170,18 +178,14 @@ class RoamingRalphDemo(ShowBase):
 
         # This is used to store which keys are currently pressed.
         self.keyMap = {
-            "left": 0, "right": 0, "forward": 0, "cam-left": 0, "cam-right": 0}
+            "left": 0, "right": 0, "forward": 0, "back": 0, "cam-left": 0, "cam-right": 0}
 
         # Post the instructions
         self.title = addTitle(
-            "Panda3D Tutorial: Roaming Ralph (Walking on Uneven Terrain)")
+            "Adventurer: 3rd Person File Manager (in progress)")
         self.inst1 = addInstructions(0.06, "[ESC]: Quit")
-        self.inst2 = addInstructions(0.12, "[Left Arrow]: Rotate Ralph Left")
-        self.inst3 = addInstructions(0.18, "[Right Arrow]: Rotate Ralph Right")
-        self.inst4 = addInstructions(0.24, "[Up Arrow]: Run Ralph Forward")
-        self.inst6 = addInstructions(0.30, "[A]: Rotate Camera Left")
-        self.inst7 = addInstructions(0.36, "[D]: Rotate Camera Right")
-
+        self.inst2 = addInstructions(0.12, "[Arrows]: Angle Camera")
+        self.inst3 = addInstructions(0.18, "[WASD]: Move")
         # Set up the environment
         #
         # This environment model contains collision meshes.  If you look
@@ -197,52 +201,43 @@ class RoamingRalphDemo(ShowBase):
         self.environ = loader.loadModel("models/world")
         self.environ.reparentTo(render)
 
-        # Create the main character, Ralph
+        startPos = self.environ.find("**/start_point").getPos()
+        
+        # Setup controls
+        self.keys = {}
+        for key in ['arrow_left', 'arrow_right', 'arrow_up', 'arrow_down',
+                    'a', 'd', 'w', 's']:
+            self.keys[key] = 0
+            self.accept(key, self.push_key, [key, 1])
+            self.accept('shift-%s' % key, self.push_key, [key, 1])
+            self.accept('%s-up' % key, self.push_key, [key, 0])
+        #self.accept('f', self.toggleWireframe)
+        #self.accept('x', self.toggle_xray_mode)
+        #self.accept('b', self.toggle_model_bounds)
+        self.accept('escape', __import__('sys').exit, [0])
+        self.disableMouse()
 
-        ralphStartPos = self.environ.find("**/start_point").getPos()
-        self.ralph = Actor("models/ralph",
-                           {"run": "models/ralph-run",
-                            "walk": "models/ralph-walk"})
-        self.ralph.reparentTo(render)
-        self.ralph.setScale(.2)
-        self.ralph.setPos(ralphStartPos + (0, 0, 0.5))
+        taskMgr.add(self.update, "moveTask")
 
-        # Create a floater object, which floats 2 units above ralph.  We
-        # use this as a target for the camera to look at.
-
-        self.floater = NodePath(PandaNode("floater"))
-        self.floater.reparentTo(self.ralph)
-        self.floater.setZ(2.0)
-
-        # Accept the control keys for movement and rotation
-
-        self.accept("escape", sys.exit)
-        self.accept("arrow_left", self.setKey, ["left", True])
-        self.accept("arrow_right", self.setKey, ["right", True])
-        self.accept("arrow_up", self.setKey, ["forward", True])
-        self.accept("a", self.setKey, ["cam-left", True])
-        self.accept("d", self.setKey, ["cam-right", True])
-        self.accept("arrow_left-up", self.setKey, ["left", False])
-        self.accept("arrow_right-up", self.setKey, ["right", False])
-        self.accept("arrow_up-up", self.setKey, ["forward", False])
-        self.accept("a-up", self.setKey, ["cam-left", False])
-        self.accept("d-up", self.setKey, ["cam-right", False])
-
-        taskMgr.add(self.move, "moveTask")
-
-
-        #insert test cube
-        #addCube(models, render, ralphStartPos + (0, 1, 0.5), 0.5)
-        #addWall(models, render, ralphStartPos + (0, 1, 0.5), 30, 0.2)
-        addDir(models, render, ralphStartPos + (0, 1, 0.5))
-
+        #insert test features
+        #addCube(models, render, startPos + (0, 1, 0.5), 0.5)
+        #addWall(models, render, startPos + (0, 1, 0.5), 30, 0.2)
+        addDir(models, render, startPos + (0, 1, 0.5))
         
         # Game state variables
         self.isMoving = False
 
         # Set up the camera
         self.disableMouse()
-        self.camera.setPos(self.ralph.getX(), self.ralph.getY() + 10, 2)
+
+        lens = PerspectiveLens()
+        lens.setFov(60)
+        lens.setNear(0.01)
+        lens.setFar(1000.0)
+        self.cam.node().setLens(lens)
+        self.camera.setPos(startPos)
+        self.heading = -95.0
+        self.pitch = 0.0
 
         # We will detect the height of the terrain by creating a collision
         # ray and casting it downward toward the terrain.  One ray will
@@ -252,16 +247,16 @@ class RoamingRalphDemo(ShowBase):
         # else, we rule that the move is illegal.
         self.cTrav = CollisionTraverser()
 
-        self.ralphGroundRay = CollisionRay()
-        self.ralphGroundRay.setOrigin(0, 0, 9)
-        self.ralphGroundRay.setDirection(0, 0, -1)
-        self.ralphGroundCol = CollisionNode('ralphRay')
-        self.ralphGroundCol.addSolid(self.ralphGroundRay)
-        self.ralphGroundCol.setFromCollideMask(CollideMask.bit(0))
-        self.ralphGroundCol.setIntoCollideMask(CollideMask.allOff())
-        self.ralphGroundColNp = self.ralph.attachNewNode(self.ralphGroundCol)
-        self.ralphGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.ralphGroundColNp, self.ralphGroundHandler)
+        # self.ralphGroundRay = CollisionRay()
+        # self.ralphGroundRay.setOrigin(0, 0, 9)
+        # self.ralphGroundRay.setDirection(0, 0, -1)
+        # self.ralphGroundCol = CollisionNode('ralphRay')
+        # self.ralphGroundCol.addSolid(self.ralphGroundRay)
+        # self.ralphGroundCol.setFromCollideMask(CollideMask.bit(0))
+        # self.ralphGroundCol.setIntoCollideMask(CollideMask.allOff())
+        # self.ralphGroundColNp = self.ralph.attachNewNode(self.ralphGroundCol)
+        # self.ralphGroundHandler = CollisionHandlerQueue()
+        # self.cTrav.addCollider(self.ralphGroundColNp, self.ralphGroundHandler)
 
         self.camGroundRay = CollisionRay()
         self.camGroundRay.setOrigin(0, 0, 9)
@@ -275,19 +270,6 @@ class RoamingRalphDemo(ShowBase):
         self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
 
 
-        #position = ralphStartPos + (0, 1, 0.5)
-        #cs = CollisionSphere(position[0], position[1], position[2], 1)
-        #render.attachNewNode(cs)
-        #self.ralphGroundCol.addSolid(cs)
-
-        # Uncomment this line to see the collision rays
-        #self.ralphGroundColNp.show()
-        #self.camGroundColNp.show()
-
-        # Uncomment this line to show a visual representation of the
-        # collisions occuring
-        #self.cTrav.showCollisions(render)
-
         # Create some lighting
         ambientLight = AmbientLight("ambientLight")
         ambientLight.setColor((.3, .3, .3, 1))
@@ -298,102 +280,25 @@ class RoamingRalphDemo(ShowBase):
         render.setLight(render.attachNewNode(ambientLight))
         render.setLight(render.attachNewNode(directionalLight))
 
-    # Records the state of the arrow keys
-    def setKey(self, key, value):
-        self.keyMap[key] = value
 
-    # Accepts arrow keys to move either the player or the menu cursor,
-    # Also deals with grid checking and collision detection
-    def move(self, task):
+    def push_key(self, key, value):
+        """Stores a value associated with a key."""
+        self.keys[key] = value
 
-        # Get the time that elapsed since last frame.  We multiply this with
-        # the desired speed in order to find out with which distance to move
-        # in order to achieve that desired speed.
-        dt = globalClock.getDt()
-
-        # If the camera-left key is pressed, move camera left.
-        # If the camera-right key is pressed, move camera right.
-
-        if self.keyMap["cam-left"]:
-            self.camera.setX(self.camera, -20 * dt)
-        if self.keyMap["cam-right"]:
-            self.camera.setX(self.camera, +20 * dt)
-
-        # save ralph's initial position so that we can restore it,
-        # in case he falls off the map or runs into something.
-
-        startpos = self.ralph.getPos()
-
-        # If a move-key is pressed, move ralph in the specified direction.
-
-        if self.keyMap["left"]:
-            self.ralph.setH(self.ralph.getH() + 300 * dt)
-        if self.keyMap["right"]:
-            self.ralph.setH(self.ralph.getH() - 300 * dt)
-        if self.keyMap["forward"]:
-            self.ralph.setY(self.ralph, -25 * dt)
-
-        # If ralph is moving, loop the run animation.
-        # If he is standing still, stop the animation.
-
-        if self.keyMap["forward"] or self.keyMap["left"] or self.keyMap["right"]:
-            if self.isMoving is False:
-                self.ralph.loop("run")
-                self.isMoving = True
-        else:
-            if self.isMoving:
-                self.ralph.stop()
-                self.ralph.pose("walk", 5)
-                self.isMoving = False
-
-        # If the camera is too far from ralph, move it closer.
-        # If the camera is too close to ralph, move it farther.
-
-        camvec = self.ralph.getPos() - self.camera.getPos()
-        camvec.setZ(0)
-        camdist = camvec.length()
-        camvec.normalize()
-        if camdist > 10.0:
-            self.camera.setPos(self.camera.getPos() + camvec * (camdist - 10))
-            camdist = 10.0
-        if camdist < 5.0:
-            self.camera.setPos(self.camera.getPos() - camvec * (5 - camdist))
-            camdist = 5.0
-
-        # Normally, we would have to call traverse() to check for collisions.
-        # However, the class ShowBase that we inherit from has a task to do
-        # this for us, if we assign a CollisionTraverser to self.cTrav.
-        #self.cTrav.traverse(render)
-
-        # Adjust ralph's Z coordinate.  If ralph's ray hit terrain, update his Z.
-        # If it hit anything else, or didn't hit anything, put him back where he was last frame.
-
-        entries = list(self.ralphGroundHandler.getEntries())
-        entries.sort(key=lambda x: x.getSurfacePoint(render).getZ())
-
-        if len(entries) > 0 and entries[0].getIntoNode().getName() == "terrain":
-            self.ralph.setZ(entries[0].getSurfacePoint(render).getZ())
-        if len(entries) > 1:
-            self.ralph.setPos(startpos+(startpos-self.ralph.getPos())*1.01)
-
-        # Keep the camera at one foot above the terrain,
-        # or two feet above ralph, whichever is greater.
-
-        entries = list(self.camGroundHandler.getEntries())
-        entries.sort(key=lambda x: x.getSurfacePoint(render).getZ())
-
-        if len(entries) > 0 and entries[0].getIntoNode().getName() == "terrain":
-            self.camera.setZ(entries[0].getSurfacePoint(render).getZ() + 1.0)
-        if self.camera.getZ() < self.ralph.getZ() + 2.0:
-            self.camera.setZ(self.ralph.getZ() + 2.0)
-
-        # The camera should look in ralph's direction,
-        # but it should also try to stay horizontal, so look at
-        # a floater which hovers above ralph's head.
-        self.camera.lookAt(self.floater)
-
+    def update(self, task):
+        """Updates the camera based on the keyboard input. Once this is
+        done, then the CellManager's update function is called."""
+        delta = globalClock.getDt()
+        move_x = delta * 3 * -self.keys['a'] + delta * 3 * self.keys['d']
+        move_z = delta * 3 * self.keys['s'] + delta * 3 * -self.keys['w']
+        self.camera.setPos(self.camera, move_x, -move_z, 0)
+        self.heading += (delta * 90 * self.keys['arrow_left'] +
+                         delta * 90 * -self.keys['arrow_right'])
+        self.pitch += (delta * 90 * self.keys['arrow_up'] +
+                       delta * 90 * -self.keys['arrow_down'])
+        self.camera.setHpr(self.heading, self.pitch, 0)
+        
         return task.cont
-
 
 demo = RoamingRalphDemo()
 demo.run()
