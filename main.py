@@ -73,7 +73,7 @@ def addCube(models, render, position, scale=1, rotate=1):
     #cube = render.attachNewNode(snode)
 
     cn = CollisionNode('test')
-    cn.addSolid(CollisionSphere(0, 0, 0, 1.1))
+    cn.addSolid(CollisionSphere(0, 0, 0, scale))
     cube = render.attachNewNode(cn)
     cube.show()
     cube.setScale(scale)
@@ -87,7 +87,7 @@ def addCube(models, render, position, scale=1, rotate=1):
     
     cube.setPos(position)
     
-def addWall(models, render, position, l, w, h=2, opaque=False):
+def addWall(models, render, position, l, w, h=3.2, opaque=False):
     cn = CollisionNode('wall')
     cn.addSolid(CollisionBox((0,0,0),l,w,h))
     cube = render.attachNewNode(cn)
@@ -116,11 +116,42 @@ def addWall(models, render, position, l, w, h=2, opaque=False):
         cube.show()
     
 
-def addDir(models, render, position):
-    #TODO for every file in a directory, make a cube of relative size.
+def addDir(models, render, position, path='.'):
+    #TODO for every file in a directory, make an item of relative size.
+    entities = os.listdir(path)
+    dirChild = []
+    files = []
     
-    pass
+    for item in entities:
+        if os.path.isdir(item):
+            dirChild.append(item)
+        else:
+            files.append(item)
 
+    lengthRoom = min(10, len(dirChild)*5)
+    widthRoom = min(10, len(files)/(lengthRoom/5)*5)
+    print lengthRoom, widthRoom
+
+    # Put up walls
+    addWall(models, render, position + (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
+    addWall(models, render, position - (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
+    addWall(models, render, position + (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
+    addWall(models, render, position - (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
+    
+    # Build door back to parent directory.
+    # TODO
+    # Build doors to child directories
+
+    # Add representations of each file.
+    lencross = lengthRoom/5
+    for i in range(len(files)):
+        nfile = files[i]
+        s = os.path.getsize(nfile)
+        scl = utils.size_to_scale(s)
+        addCube(models, render, position + (-1*lengthRoom+2, -1*widthRoom+2, 0) +
+                (i%lencross*5,i/lencross*5,0), scl)
+        
+        
 class RoamingRalphDemo(ShowBase):
     def __init__(self):
         # Set up the window, camera, etc.
@@ -193,8 +224,9 @@ class RoamingRalphDemo(ShowBase):
 
 
         #insert test cube
-        addCube(models, render, ralphStartPos + (0, 1, 0.5), 0.5)
-        addWall(models, render, ralphStartPos + (0, 1, 0.5), 30, 0.2)
+        #addCube(models, render, ralphStartPos + (0, 1, 0.5), 0.5)
+        #addWall(models, render, ralphStartPos + (0, 1, 0.5), 30, 0.2)
+        addDir(models, render, ralphStartPos + (0, 1, 0.5))
 
         
         # Game state variables
