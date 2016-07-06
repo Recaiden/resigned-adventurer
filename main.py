@@ -9,7 +9,6 @@
 # and having it walk around on uneven terrain, as well
 # as implementing a fully rotatable camera.
 
-
 #from direct.showbase.DirectObject import DirectObject
 #from direct.gui.DirectGui import *
 #from direct.interval.IntervalGlobal import *
@@ -22,7 +21,6 @@ from panda3d.core import CardMaker
 from panda3d.core import Light, Spotlight
 from panda3d.core import TextNode
 from panda3d.core import LVector3
-
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import CollisionTraverser, CollisionNode
@@ -46,6 +44,7 @@ camMax = 2.0
 camMin = 0.0
 camHeight = 1.0
 
+WALL_HEIGHT= 3.2
         
 # Function to put instructions on the screen.
 def addInstructions(pos, msg):
@@ -61,7 +60,7 @@ def addTitle(text):
 
 
 # would like to make the first two arguments a single context object.
-def addCube(models, render, position, scale=1, rotate=1):
+def addCube(render, position, scale=1, rotate=1):
     # square0 = models.makeSquare(-1, -1, -1, 1, -1, 1)
     # square1 = models.makeSquare(-1, 1, -1, 1, 1, 1)
     # square2 = models.makeSquare(-1, 1, 1, 1, -1, 1)
@@ -93,7 +92,7 @@ def addCube(models, render, position, scale=1, rotate=1):
     
     cube.setPos(position)
     
-def addWall(models, render, position, l, w, h=3.2, opaque=False):
+def addWall(render, position, l, w, h=WALL_HEIGHT, opaque=False):
     cn = CollisionNode('wall')
     cn.addSolid(CollisionBox((0,0,0),l,w,h))
     cube = render.attachNewNode(cn)
@@ -122,7 +121,7 @@ def addWall(models, render, position, l, w, h=3.2, opaque=False):
         cube.show()
     
 
-def addDir(models, render, position, path='.'):
+def addDir(render, position, path='.'):
     #TODO for every file in a directory, make an item of relative size.
     entities = os.listdir(path)
     dirChild = []
@@ -137,14 +136,17 @@ def addDir(models, render, position, path='.'):
     lengthRoom = max(10, len(dirChild)*5)
     widthRoom = max(10, (len(files)*5)/(lengthRoom/5))
     print lengthRoom, widthRoom, len(files)
-    lengthRoom/=1.5
-    widthRoom/=1.5
+    #lengthRoom/=1.5
+    #widthRoom/=1.5
 
+    # Put up floor
+    addWall(render, position-(0,0,WALL_HEIGHT), lengthRoom, widthRoom, 0.1, opaque=True)
+    
     # Put up walls
-    addWall(models, render, position + (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
-    addWall(models, render, position - (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
-    addWall(models, render, position + (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
-    addWall(models, render, position - (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
+    addWall(render, position + (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
+    addWall(render, position - (0, widthRoom, 0), lengthRoom, 0.1, opaque=True)
+    addWall(render, position + (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
+    addWall(render, position - (lengthRoom, 0, 0), 0.1, widthRoom, opaque=True)
     
     # Build door back to parent directory.
     # TODO
@@ -152,14 +154,14 @@ def addDir(models, render, position, path='.'):
 
     # Add representations of each file.
     lencross = widthRoom/5
-    posFile = position + (-1*lengthRoom+2, -1*widthRoom+2, 0)
+    posFile = position + (-1*lengthRoom+2, -1*widthRoom+2, -0.5*WALL_HEIGHT)
     LETTER_SIZE = 0.035
     for i in range(len(files)):
         posNFile = posFile + (i%lencross*5,i/lencross*5,0)
         nfile = files[i]
         s = os.path.getsize(nfile)
         scl = utils.size_to_scale(s)
-        addCube(models, render,  posNFile, scl)
+        addCube(render,  posNFile, scl)
         text = TextNode("filename: %s"%nfile)
         text.setText(nfile)
         textNodePath = render.attachNewNode(text)
@@ -198,10 +200,11 @@ class RoamingRalphDemo(ShowBase):
         # It also keeps the original mesh, so there are now two copies ---
         # one optimized for rendering, one for collisions.
 
-        self.environ = loader.loadModel("models/world")
-        self.environ.reparentTo(render)
+        #self.environ = loader.loadModel("models/world")
+        #self.environ.reparentTo(render)
 
-        startPos = self.environ.find("**/start_point").getPos()
+        #loader.unload_model
+        startPos = Point3(0,0,0)#self.environ.find("**/start_point").getPos()
         
         # Setup controls
         self.keys = {}
@@ -222,7 +225,7 @@ class RoamingRalphDemo(ShowBase):
         #insert test features
         #addCube(models, render, startPos + (0, 1, 0.5), 0.5)
         #addWall(models, render, startPos + (0, 1, 0.5), 30, 0.2)
-        addDir(models, render, startPos + (0, 1, 0.5))
+        addDir(render, startPos + (0, 1, 0.5))
         
         # Game state variables
         self.isMoving = False
