@@ -25,7 +25,7 @@ from panda3d.core import LVector3
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import CollisionTraverser, CollisionNode
 from panda3d.core import CollisionBox, CollisionSphere, CollisionPolygon, Point3
-from panda3d.core import CollisionHandlerQueue, CollisionRay
+from panda3d.core import CollisionHandlerQueue, CollisionHandlerPusher, CollisionRay
 from panda3d.core import Filename, AmbientLight, DirectionalLight
 from panda3d.core import PandaNode, NodePath, Camera, TextNode
 from panda3d.core import CollideMask
@@ -44,7 +44,8 @@ camMax = 2.0
 camMin = 0.0
 camHeight = 1.0
 
-WALL_HEIGHT= 3.2
+WALL_HEIGHT = 3.2
+SPEED_MOVE = 5
         
 # Function to put instructions on the screen.
 def addInstructions(pos, msg):
@@ -232,7 +233,6 @@ class RoamingRalphDemo(ShowBase):
 
         # Set up the camera
         self.disableMouse()
-
         lens = PerspectiveLens()
         lens.setFov(60)
         lens.setNear(0.01)
@@ -242,35 +242,18 @@ class RoamingRalphDemo(ShowBase):
         self.heading = -95.0
         self.pitch = 0.0
 
-
-        # We will detect the height of the terrain by creating a collision
-        # ray and casting it downward toward the terrain.  One ray will
-        # start above ralph's head, and the other will start above the camera.
-        # A ray may hit the terrain, or it may hit a rock or a tree.  If it
-        # hits the terrain, we can detect the height.  If it hits anything
-        # else, we rule that the move is illegal.
+        # Add collision to keept he camera in the room
         cn = CollisionNode('camera')
         cn.addSolid(CollisionSphere(0, 0, 0, 0.5))
         camColl = self.camera.attachNewNode(cn)
-
         self.cTrav = CollisionTraverser('camera traverser')
-
-        self.camGroundHandler = CollisionHandlerQueue()
+        self.camGroundHandler = CollisionHandlerPusher()
+        self.camGroundHandler.addCollider(camColl, NodePath(self.camera))
         self.cTrav.addCollider(camColl, self.camGroundHandler)
 
         # Makes colliding objects show up 
         self.cTrav.showCollisions(render)
         
-        # self.camGroundRay = CollisionRay()
-        # self.camGroundRay.setOrigin(0, 0, 9)
-        # self.camGroundRay.setDirection(0, 0, -1)
-        # self.camGroundCol = CollisionNode('camRay')
-        # self.camGroundCol.addSolid(self.camGroundRay)
-        # self.camGroundCol.setFromCollideMask(CollideMask.bit(0))
-        # self.camGroundCol.setIntoCollideMask(CollideMask.allOff())
-        # self.camGroundColNp = self.camera.attachNewNode(self.camGroundCol)
-
-
         # Create some lighting
         ambientLight = AmbientLight("ambientLight")
         ambientLight.setColor((.3, .3, .3, 1))
@@ -289,15 +272,23 @@ class RoamingRalphDemo(ShowBase):
     def update(self, task):
         """Updates the camera based on the keyboard input. Once this is
         done, then the CellManager's update function is called."""
+        posStart = self.camera.getPos()
         delta = globalClock.getDt()
-        move_x = delta * 3 * -self.keys['a'] + delta * 3 * self.keys['d']
-        move_z = delta * 3 * self.keys['s'] + delta * 3 * -self.keys['w']
+        move_x = delta * SPEED_MOVE * -self.keys['a'] + delta * SPEED_MOVE * self.keys['d']
+        move_z = delta * SPEED_MOVE * self.keys['s'] + delta * SPEED_MOVE * -self.keys['w']
+        self.camera.setHpr(self.heading, 0, 0)
         self.camera.setPos(self.camera, move_x, -move_z, 0)
         self.heading += (delta * 90 * self.keys['arrow_left'] +
                          delta * 90 * -self.keys['arrow_right'])
         self.pitch += (delta * 90 * self.keys['arrow_up'] +
                        delta * 90 * -self.keys['arrow_down'])
         self.camera.setHpr(self.heading, self.pitch, 0)
+
+        # for entry in self.camGroundHandler.getEntries():
+        #     if entry.getFromNode().getName() == "camera":
+        #         print "Collision", posStart, self.camera.getPos()
+        #         self.camera.setPos(posStart)
+        #         break
         
         return task.cont
 
