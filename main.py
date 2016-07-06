@@ -242,35 +242,33 @@ class RoamingRalphDemo(ShowBase):
         self.heading = -95.0
         self.pitch = 0.0
 
+
         # We will detect the height of the terrain by creating a collision
         # ray and casting it downward toward the terrain.  One ray will
         # start above ralph's head, and the other will start above the camera.
         # A ray may hit the terrain, or it may hit a rock or a tree.  If it
         # hits the terrain, we can detect the height.  If it hits anything
         # else, we rule that the move is illegal.
-        self.cTrav = CollisionTraverser()
+        cn = CollisionNode('camera')
+        cn.addSolid(CollisionSphere(0, 0, 0, 0.5))
+        camColl = self.camera.attachNewNode(cn)
 
-        # self.ralphGroundRay = CollisionRay()
-        # self.ralphGroundRay.setOrigin(0, 0, 9)
-        # self.ralphGroundRay.setDirection(0, 0, -1)
-        # self.ralphGroundCol = CollisionNode('ralphRay')
-        # self.ralphGroundCol.addSolid(self.ralphGroundRay)
-        # self.ralphGroundCol.setFromCollideMask(CollideMask.bit(0))
-        # self.ralphGroundCol.setIntoCollideMask(CollideMask.allOff())
-        # self.ralphGroundColNp = self.ralph.attachNewNode(self.ralphGroundCol)
-        # self.ralphGroundHandler = CollisionHandlerQueue()
-        # self.cTrav.addCollider(self.ralphGroundColNp, self.ralphGroundHandler)
+        self.cTrav = CollisionTraverser('camera traverser')
 
-        self.camGroundRay = CollisionRay()
-        self.camGroundRay.setOrigin(0, 0, 9)
-        self.camGroundRay.setDirection(0, 0, -1)
-        self.camGroundCol = CollisionNode('camRay')
-        self.camGroundCol.addSolid(self.camGroundRay)
-        self.camGroundCol.setFromCollideMask(CollideMask.bit(0))
-        self.camGroundCol.setIntoCollideMask(CollideMask.allOff())
-        self.camGroundColNp = self.camera.attachNewNode(self.camGroundCol)
         self.camGroundHandler = CollisionHandlerQueue()
-        self.cTrav.addCollider(self.camGroundColNp, self.camGroundHandler)
+        self.cTrav.addCollider(camColl, self.camGroundHandler)
+
+        # Makes colliding objects show up 
+        self.cTrav.showCollisions(render)
+        
+        # self.camGroundRay = CollisionRay()
+        # self.camGroundRay.setOrigin(0, 0, 9)
+        # self.camGroundRay.setDirection(0, 0, -1)
+        # self.camGroundCol = CollisionNode('camRay')
+        # self.camGroundCol.addSolid(self.camGroundRay)
+        # self.camGroundCol.setFromCollideMask(CollideMask.bit(0))
+        # self.camGroundCol.setIntoCollideMask(CollideMask.allOff())
+        # self.camGroundColNp = self.camera.attachNewNode(self.camGroundCol)
 
 
         # Create some lighting
